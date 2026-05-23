@@ -2,8 +2,12 @@
 node_modules/
 
 # Build output
-dist/
+dist/*
+!dist/.gitkeep
 build/
+
+# Cargo
+target/
 
 # Vite
 .vite/

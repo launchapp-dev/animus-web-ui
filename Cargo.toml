@@ -1,0 +1,10 @@
+[workspace]
+members = ["wrapper"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "Elastic-2.0"
+authors = ["Launchapp.dev"]
+repository = "https://github.com/launchapp-dev/animus-web-ui"
+homepage = "https://github.com/launchapp-dev/animus-cli"

@@ -75,13 +75,35 @@ This repo ships the React app only. The current default UI flow uses GraphQL
 for everything; the REST transport is here for plugins and integrations that
 prefer JSON over HTTP.
 
-## Planned: Rust plugin wrapper
+## Rust plugin wrapper
 
-A future `wrapper/` crate will bundle the built `dist/` tree via `include_dir!`
-and expose it as an Animus transport-backend plugin. That lets operators
-install `animus-web-ui` as a single binary plugin instead of running it as a
-separate Vite/static-asset deployment. v0.1.0 of this repo ships the React app
-only; the wrapper crate lands in a follow-up release.
+The [`wrapper/`](./wrapper) crate (`animus-web-ui-wrapper`) bundles the
+built `dist/` tree via `include_dir!` and exposes it as an Animus
+[`TransportBackend`](https://github.com/launchapp-dev/animus-protocol/tree/main/animus-transport-protocol)
+plugin pinned to `v0.1.8`. Operators install one binary instead of
+running a separate static-asset deployment.
+
+| Plugin                       | Default port |
+|------------------------------|--------------|
+| `animus-transport-http`      | 8080         |
+| `animus-transport-graphql`   | 8081         |
+| `animus-web-ui-wrapper`      | **8082**     |
+
+Install workflow:
+
+```bash
+git clone https://github.com/launchapp-dev/animus-web-ui.git
+cd animus-web-ui
+npm install
+npm run build                                       # emits ./dist (required before cargo build)
+cargo build --release -p animus-web-ui-wrapper
+animus plugin install ./target/release/animus-web-ui-wrapper
+```
+
+The wrapper compiles even on a fresh checkout with an empty `dist/`; in
+that mode it serves a "build the UI first" placeholder so the failure mode
+is obvious. See [`wrapper/README.md`](./wrapper/README.md) for the full
+contract.
 
 ## License
 

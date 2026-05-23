@@ -1,0 +1,21 @@
+[plugin]
+name = "animus-web-ui-wrapper"
+version = "0.1.0"
+plugin_kind = "transport_backend"
+description = "Serves the bundled Animus React web UI over HTTP"
+homepage = "https://github.com/launchapp-dev/animus-cli"
+repository = "https://github.com/launchapp-dev/animus-web-ui"
+license = "Elastic-2.0"
+
+[transport]
+default_port = 8082
+supports_streaming = false
+supports_websocket = false
+kinds = ["http", "static"]
+
+[runtime]
+binary = "animus-web-ui-wrapper"
+protocol = "stdio"
+
+[capabilities]
+required = []
