@@ -1,6 +1,6 @@
 [plugin]
-name = "animus-web-ui-wrapper"
-version = "0.1.0"
+name = "animus-web-ui"
+version = "0.1.1"
 plugin_kind = "transport_backend"
 description = "Serves the bundled Animus React web UI over HTTP"
 homepage = "https://github.com/launchapp-dev/animus-cli"
@@ -14,7 +14,7 @@ supports_websocket = false
 kinds = ["http", "static"]
 
 [runtime]
-binary = "animus-web-ui-wrapper"
+binary = "animus-web-ui"
 protocol = "stdio"
 
 [capabilities]

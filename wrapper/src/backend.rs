@@ -52,7 +52,7 @@ impl TransportBackend for WebUiBackend {
             Err(_) => settings.bind_addr.clone(),
         };
 
-        tracing::info!(addr = %bound, "animus-web-ui-wrapper listening");
+        tracing::info!(addr = %bound, "animus-web-ui listening");
 
         let handle = tokio::spawn(async move {
             if let Err(err) = axum::serve(listener, app).await {

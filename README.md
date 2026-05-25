@@ -77,7 +77,7 @@ prefer JSON over HTTP.
 
 ## Rust plugin wrapper
 
-The [`wrapper/`](./wrapper) crate (`animus-web-ui-wrapper`) bundles the
+The [`wrapper/`](./wrapper) crate (`animus-web-ui`) bundles the
 built `dist/` tree via `include_dir!` and exposes it as an Animus
 [`TransportBackend`](https://github.com/launchapp-dev/animus-protocol/tree/main/animus-transport-protocol)
 plugin pinned to `v0.1.8`. Operators install one binary instead of
@@ -87,7 +87,7 @@ running a separate static-asset deployment.
 |------------------------------|--------------|
 | `animus-transport-http`      | 8080         |
 | `animus-transport-graphql`   | 8081         |
-| `animus-web-ui-wrapper`      | **8082**     |
+| `animus-web-ui`              | **8082**     |
 
 Install workflow:
 
@@ -96,8 +96,8 @@ git clone https://github.com/launchapp-dev/animus-web-ui.git
 cd animus-web-ui
 npm install
 npm run build                                       # emits ./dist (required before cargo build)
-cargo build --release -p animus-web-ui-wrapper
-animus plugin install ./target/release/animus-web-ui-wrapper
+cargo build --release -p animus-web-ui
+animus plugin install ./target/release/animus-web-ui
 ```
 
 The wrapper compiles even on a fresh checkout with an empty `dist/`; in

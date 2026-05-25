@@ -42,7 +42,7 @@ async fn healthz() -> impl IntoResponse {
     (
         StatusCode::OK,
         [(header::CONTENT_TYPE, "application/json")],
-        r#"{"ok":true,"plugin":"animus-web-ui-wrapper"}"#,
+        r#"{"ok":true,"plugin":"animus-web-ui"}"#,
     )
 }
 

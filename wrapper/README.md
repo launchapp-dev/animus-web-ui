@@ -1,4 +1,4 @@
-# animus-web-ui-wrapper
+# animus-web-ui
 
 Animus `TransportBackend` plugin that bundles the
 [`animus-web-ui`](https://github.com/launchapp-dev/animus-web-ui) React build
@@ -15,7 +15,7 @@ plugin defaults:
 |------------------------------|--------------|
 | `animus-transport-http`      | 8080         |
 | `animus-transport-graphql`   | 8081         |
-| `animus-web-ui-wrapper`      | **8082**     |
+| `animus-web-ui`      | **8082**     |
 
 Operators can override with `bind_addr` in workflow YAML or the project's
 `.animus/config.json`.
@@ -29,7 +29,7 @@ The React app must be built *before* the wrapper, because the wrapper bundles
 # From the repo root:
 npm install
 npm run build              # emits ./dist
-cargo build --release -p animus-web-ui-wrapper
+cargo build --release -p animus-web-ui
 ```
 
 If `cargo build` is run without first running `npm run build`, the binary
@@ -40,7 +40,7 @@ instead of the app.
 ## Install as a plugin
 
 ```bash
-animus plugin install ./target/release/animus-web-ui-wrapper
+animus plugin install ./target/release/animus-web-ui
 ```
 
 The plugin advertises:
@@ -74,7 +74,7 @@ Example `.animus/config.json` snippet:
 ```json
 {
   "transports": {
-    "animus-web-ui-wrapper": {
+    "animus-web-ui": {
       "bind_addr": "127.0.0.1:8082"
     }
   }
@@ -84,8 +84,8 @@ Example `.animus/config.json` snippet:
 ## Development
 
 ```bash
-cargo test -p animus-web-ui-wrapper
-cargo clippy -p animus-web-ui-wrapper --all-targets -- -D warnings
+cargo test -p animus-web-ui
+cargo clippy -p animus-web-ui --all-targets -- -D warnings
 cargo fmt --check
 ```
 

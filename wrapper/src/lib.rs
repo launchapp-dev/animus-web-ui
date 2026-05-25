@@ -1,4 +1,4 @@
-//! `animus-web-ui-wrapper` — Animus transport plugin that serves the bundled
+//! `animus-web-ui` — Animus transport plugin that serves the bundled
 //! React web UI over HTTP.
 //!
 //! The React build is embedded at compile time via [`include_dir!`] (see

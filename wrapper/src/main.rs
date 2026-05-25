@@ -6,7 +6,7 @@ use animus_plugin_protocol::PluginInfo;
 use animus_plugin_runtime::transport_backend_main;
 use animus_transport_protocol::PLUGIN_KIND_TRANSPORT_BACKEND;
 
-use animus_web_ui_wrapper::WebUiBackend;
+use animus_web_ui::WebUiBackend;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

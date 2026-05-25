@@ -7,11 +7,11 @@ use std::path::PathBuf;
 
 use animus_plugin_protocol::HealthStatus;
 use animus_transport_protocol::{TransportBackend, TransportConfig};
-use animus_web_ui_wrapper::backend::DEFAULT_PORT;
-use animus_web_ui_wrapper::config::WebUiSettings;
-use animus_web_ui_wrapper::embed;
-use animus_web_ui_wrapper::server::build_router;
-use animus_web_ui_wrapper::WebUiBackend;
+use animus_web_ui::backend::DEFAULT_PORT;
+use animus_web_ui::config::WebUiSettings;
+use animus_web_ui::embed;
+use animus_web_ui::server::build_router;
+use animus_web_ui::WebUiBackend;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
@@ -20,7 +20,7 @@ use tower::ServiceExt;
 fn test_settings() -> WebUiSettings {
     WebUiSettings {
         bind_addr: "127.0.0.1:0".to_string(),
-        control_socket_path: PathBuf::from("/tmp/animus-web-ui-wrapper-test.sock"),
+        control_socket_path: PathBuf::from("/tmp/animus-web-ui-test.sock"),
         project_root: PathBuf::from("/tmp"),
         api_origin: None,
     }
@@ -44,7 +44,7 @@ async fn healthz_returns_ok_envelope() {
     let (status, body) = body_string(app, "GET", "/healthz").await;
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("\"ok\":true"));
-    assert!(body.contains("animus-web-ui-wrapper"));
+    assert!(body.contains("animus-web-ui"));
 }
 
 #[tokio::test]
@@ -107,7 +107,7 @@ async fn backend_lifecycle_round_trip() {
     assert!(matches!(health_before.status, HealthStatus::Degraded));
 
     let config = TransportConfig {
-        control_socket_path: PathBuf::from("/tmp/animus-web-ui-wrapper-test.sock"),
+        control_socket_path: PathBuf::from("/tmp/animus-web-ui-test.sock"),
         project_root: PathBuf::from("/tmp"),
         bind_addr: Some("127.0.0.1:0".into()),
         config: serde_json::Value::Null,
