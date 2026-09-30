@@ -382,6 +382,7 @@ export type QueryRootWorkflowArgs = {
 
 
 export type QueryRootWorkflowsArgs = {
+  limit?: InputMaybe<Scalars['Int']['input']>;
   status?: InputMaybe<WorkflowStatus>;
 };
 

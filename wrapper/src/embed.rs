@@ -1,7 +1,7 @@
 //! Compile-time embed of the React build output.
 //!
-//! `include_dir!` snapshots `../dist` at build time. A fresh checkout ships
-//! with an empty `dist/` (only `.gitkeep`), so [`is_populated`] lets the
+//! `include_dir!` snapshots `../dist` at build time. Without `npm run build`
+//! the build script leaves `dist/` empty, so [`is_populated`] lets the
 //! server fall back to a "build the UI first" placeholder instead of 404ing
 //! on `/`.
 

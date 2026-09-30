@@ -10,6 +10,7 @@
 pub mod backend;
 pub mod config;
 pub mod embed;
+pub mod loopback;
 pub mod server;
 
 pub use backend::WebUiBackend;
