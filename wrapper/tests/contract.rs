@@ -84,6 +84,26 @@ async fn non_get_method_rejected() {
 }
 
 #[tokio::test]
+async fn graphql_post_reaches_the_proxy() {
+    // Point the proxy at a closed port so the test never talks to a real
+    // transport. The request must reach the proxy (502 from the failed
+    // upstream call), not the static handler's 405.
+    let settings = WebUiSettings {
+        api_origin: Some("http://127.0.0.1:9".to_string()),
+        ..test_settings()
+    };
+    let app = build_router(settings);
+    let req = Request::builder()
+        .method("POST")
+        .uri("/graphql")
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"query":"{ __typename }"}"#))
+        .unwrap();
+    let response = app.oneshot(req).await.unwrap();
+    assert_ne!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
+}
+
+#[tokio::test]
 async fn missing_asset_404s_when_built() {
     let app = build_router(test_settings());
     let (status, _) = body_string(app, "GET", "/assets/does-not-exist.js").await;
@@ -101,7 +121,7 @@ async fn backend_lifecycle_round_trip() {
     let schema = backend.schema();
     assert_eq!(schema.default_port, Some(DEFAULT_PORT));
     assert!(schema.kinds.iter().any(|k| k == "http"));
-    assert!(!schema.supports_websocket);
+    assert!(schema.supports_websocket);
 
     let health_before = backend.health().await.expect("health");
     assert!(matches!(health_before.status, HealthStatus::Degraded));

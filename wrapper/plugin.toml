@@ -20,7 +20,7 @@ methods = [
 kinds = ["http", "static"]
 default_port = 8082
 supports_streaming = false
-supports_websocket = false
+supports_websocket = true
 
 [binary]
 default = "animus-web-ui"
