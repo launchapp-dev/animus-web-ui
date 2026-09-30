@@ -13,7 +13,7 @@ use animus_web_ui::embed;
 use animus_web_ui::server::build_router;
 use animus_web_ui::WebUiBackend;
 use axum::body::Body;
-use axum::http::{Request, StatusCode};
+use axum::http::{HeaderValue, Request, StatusCode};
 use http_body_util::BodyExt;
 use tower::ServiceExt;
 
@@ -31,6 +31,7 @@ async fn body_string(app: axum::Router, method: &str, path: &str) -> (StatusCode
     let req = Request::builder()
         .method(method)
         .uri(path)
+        .header("host", "127.0.0.1:8082")
         .body(Body::empty())
         .unwrap();
     let response = app.oneshot(req).await.unwrap();
@@ -78,6 +79,7 @@ async fn non_get_method_rejected() {
     let req = Request::builder()
         .method("POST")
         .uri("/some/path")
+        .header("host", "127.0.0.1:8082")
         .body(Body::from("{}"))
         .unwrap();
     let response = app.oneshot(req).await.unwrap();
@@ -97,6 +99,7 @@ async fn graphql_post_reaches_the_proxy() {
     let req = Request::builder()
         .method("POST")
         .uri("/graphql")
+        .header("host", "127.0.0.1:8082")
         .header("content-type", "application/json")
         .body(Body::from(r#"{"query":"{ __typename }"}"#))
         .unwrap();
@@ -190,6 +193,41 @@ async fn local_host_and_origin_are_served() {
         "GET",
         "/",
         &[("host", "localhost:8082")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn request_without_host_is_refused() {
+    for (method, path) in [("GET", "/healthz"), ("POST", "/graphql")] {
+        let status = status_with(build_router(test_settings()), method, path, &[]).await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{method} {path}");
+    }
+}
+
+#[tokio::test]
+async fn unreadable_host_is_refused() {
+    for (method, path) in [("GET", "/healthz"), ("POST", "/graphql")] {
+        let req = Request::builder()
+            .method(method)
+            .uri(path)
+            .header("host", HeaderValue::from_bytes(b"127.0.0.1\xff").unwrap())
+            .body(Body::empty())
+            .unwrap();
+        let response = build_router(test_settings()).oneshot(req).await.unwrap();
+        assert_eq!(response.status(), StatusCode::FORBIDDEN, "{method} {path}");
+    }
+}
+
+#[tokio::test]
+async fn local_uri_authority_without_host_is_served() {
+    // HTTP/2 sends the host as the URI authority, not a Host header.
+    let status = status_with(
+        build_router(test_settings()),
+        "GET",
+        "http://127.0.0.1:8082/healthz",
+        &[],
     )
     .await;
     assert_eq!(status, StatusCode::OK);
