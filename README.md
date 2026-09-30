@@ -30,6 +30,22 @@ with `ANIMUS_DEV_PROXY_TARGET`:
 ANIMUS_DEV_PROXY_TARGET=http://localhost:9090 npm run dev
 ```
 
+## GraphQL schema
+
+`schema.graphql` is a copy of the GraphQL transport's schema, and
+`npm run codegen` generates the typed operations in
+`src/lib/graphql/generated/` from it. Codegen fails if a query in
+`src/**/*.graphql` asks for a field the schema doesn't have; CI runs it and
+also fails if the committed output is stale.
+
+When the transport's schema changes, refresh the copy from a running
+transport and regenerate:
+
+```bash
+curl -s http://127.0.0.1:8081/graphql/sdl > schema.graphql
+npm run codegen
+```
+
 ## Configuring the API endpoint
 
 The GraphQL endpoint is resolved at runtime in

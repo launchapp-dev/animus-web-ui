@@ -1,7 +1,7 @@
 {
   "name": "animus-web-ui",
   "private": false,
-  "version": "0.1.0",
+  "version": "0.1.3",
   "type": "module",
   "description": "React UI for Animus — consumes HTTP + GraphQL transport plugins",
   "repository": {

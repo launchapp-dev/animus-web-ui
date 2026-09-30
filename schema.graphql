@@ -1,0 +1,450 @@
+input CreateSubjectInput {
+	kind: String!
+	title: String!
+	body: String
+	status: SubjectStatus
+	"""
+	Priority on a 0..=4 scale.
+	"""
+	priority: Int
+	labels: [String!]! = []
+	assignee: String
+}
+
+"""
+An active agent session. Mirrors
+[`animus_control_protocol::types::AgentInfo`].
+"""
+type DaemonAgent {
+	sessionId: String!
+	provider: String!
+	model: String!
+	workflowId: String
+	phaseId: String
+	startedAt: String!
+}
+
+type DaemonEvent {
+	id: String!
+	kind: String!
+	payload: String!
+	at: String!
+}
+
+"""
+Daemon health report. Mirrors
+[`animus_control_protocol::types::DaemonHealthResponse`].
+"""
+type DaemonHealth {
+	"""
+	Convenience flag: `true` only when `status == HEALTHY`.
+	"""
+	healthy: Boolean!
+	status: HealthStatus!
+	plugins: [PluginHealth!]!
+	lastError: String
+}
+
+"""
+Daemon process status. Mirrors
+[`animus_control_protocol::types::DaemonStatusResponse`].
+"""
+type DaemonStatus {
+	running: Boolean!
+	pid: Int
+	uptimeSeconds: Int
+	version: String
+	projectRoot: String
+	logPath: String
+}
+
+input EnqueueInput {
+	taskId: ID!
+	"""
+	Priority on a 0..=4 scale. Defaults to 2 (medium) when omitted.
+	"""
+	priority: Int
+}
+
+"""
+Coarse daemon health verdict. Mirrors
+[`animus_control_protocol::types::DaemonHealthStatus`].
+"""
+enum HealthStatus {
+	HEALTHY
+	DEGRADED
+	UNHEALTHY
+	DOWN
+}
+
+input InstallPluginInput {
+	source: String!
+	version: String
+	yes: Boolean! = false
+	allowUnsigned: Boolean! = false
+}
+
+type MutationRoot {
+	"""
+	Run a workflow for a subject/task.
+	"""
+	runWorkflow(taskId: ID!, definition: String): WorkflowRunStart!
+	"""
+	Execute a workflow definition directly, optionally bound to a subject.
+	"""
+	executeWorkflow(definition: String!, subjectId: ID): WorkflowRunStart!
+	pauseWorkflow(id: ID!): Boolean!
+	resumeWorkflow(id: ID!, feedback: String): Boolean!
+	cancelWorkflow(id: ID!, reason: String): Boolean!
+	enqueue(input: EnqueueInput!): QueueEntry!
+	dropQueue(id: ID!): Boolean!
+	holdQueue(id: ID!, reason: String): Boolean!
+	releaseQueue(id: ID!): Boolean!
+	"""
+	Reorder queue entries: move the given ids as a contiguous group to the
+	front (default) or back of the queue.
+	"""
+	reorderQueue(ids: [ID!]!, front: Boolean! = true): Boolean!
+	installPlugin(input: InstallPluginInput!): Plugin!
+	uninstallPlugin(name: String!): Boolean!
+	"""
+	Lifecycle-ping a plugin.
+	"""
+	pingPlugin(name: String!): PluginPing!
+	"""
+	Update installed plugins. With `dryRun = true`, lists available
+	upgrades without applying them.
+	"""
+	updatePlugins(name: String, tag: String, dryRun: Boolean! = false): [PluginUpdate!]!
+	"""
+	Start the daemon. `daemon/stop` and `daemon/restart` are intentionally
+	not exposed — the kernel forbids them over the control socket.
+	"""
+	startDaemon: Boolean!
+	createSubject(input: CreateSubjectInput!): Subject!
+	updateSubject(input: UpdateSubjectInput!): Subject!
+	"""
+	Set a subject's normalized status.
+	"""
+	setSubjectStatus(id: ID!, status: SubjectStatus!): Subject!
+}
+
+"""
+One installed plugin. Mirrors
+[`animus_control_protocol::types::PluginInfo`].
+"""
+type Plugin {
+	"""
+	Plugin name (manifest `name`); also serves as the GraphQL id.
+	"""
+	id: ID!
+	name: String!
+	version: String!
+	kind: String!
+	source: String
+	signatureVerified: Boolean!
+	description: String
+	binaryPath: String
+}
+
+"""
+Per-plugin health snapshot. Mirrors
+[`animus_control_protocol::types::PluginHealth`].
+"""
+type PluginHealth {
+	name: String!
+	kind: String!
+	status: HealthStatus!
+	uptimeMs: Int
+	lastError: String
+}
+
+"""
+Result of pinging a plugin. Mirrors
+[`animus_control_protocol::types::PluginPingResponse`].
+"""
+type PluginPing {
+	ok: Boolean!
+	latencyMs: Int
+	error: String
+}
+
+"""
+A plugin registry entry, returned by search/browse. Mirrors
+[`animus_control_protocol::types::PluginRegistryEntry`].
+"""
+type PluginRegistryEntry {
+	id: ID!
+	name: String!
+	version: String!
+	kind: String!
+	description: String
+	url: String
+	tags: [String!]!
+	installed: Boolean!
+}
+
+"""
+One row of a plugin update. Mirrors
+[`animus_control_protocol::types::PluginUpdateEntry`].
+"""
+type PluginUpdate {
+	name: String!
+	fromVersion: String!
+	toVersion: String!
+	applied: Boolean!
+}
+
+type QueryRoot {
+	"""
+	List workflow runs, optionally filtered by status.
+	"""
+	workflows(		status: WorkflowStatus,
+		"""
+		Maximum number of runs to return (most recent first). Defaults to 200 to keep the list fast — an unbounded request makes the daemon materialize EVERY journaled run (O(n), seconds for thousands of runs). Clamped to 1000.
+		"""
+		limit: Int
+	): [Workflow!]!
+	"""
+	Look up a single workflow run by id, including full run detail.
+	"""
+	workflow(id: ID!): Workflow!
+	"""
+	List queue entries, optionally restricted to a state.
+	"""
+	queue(state: QueueState): [QueueEntry!]!
+	queueStats: QueueStats!
+	"""
+	List installed plugins, optionally filtered by kind.
+	"""
+	plugin(kind: String): [Plugin!]!
+	"""
+	Look up a single installed plugin by name.
+	"""
+	pluginInfo(name: String!): Plugin!
+	"""
+	Search the plugin registry by free-text query.
+	"""
+	pluginSearch(query: String!, kind: String, tag: String): [PluginRegistryEntry!]!
+	"""
+	Browse the plugin registry.
+	"""
+	pluginBrowse(kind: String, installed: Boolean! = false, available: Boolean! = false): [PluginRegistryEntry!]!
+	daemon: DaemonStatus!
+	daemonHealth: DaemonHealth!
+	"""
+	Currently active agent sessions.
+	"""
+	daemonAgents: [DaemonAgent!]!
+	"""
+	List subjects, optionally filtered by kind and/or status.
+	"""
+	subject(kind: String, status: SubjectStatus): [Subject!]!
+	"""
+	Look up a single subject by id.
+	"""
+	subjectById(id: ID!): Subject!
+	"""
+	Highest-priority Ready subject, optionally restricted to a kind.
+	"""
+	subjectNext(kind: String): Subject
+}
+
+"""
+One dispatch-queue entry. Mirrors
+[`animus_control_protocol::types::QueueEntry`].
+"""
+type QueueEntry {
+	id: ID!
+	taskId: ID!
+	"""
+	Priority on a 0..=4 scale (0 = none, 4 = critical).
+	"""
+	priority: Int!
+	state: QueueState!
+	enqueuedAt: String!
+	held: Boolean!
+	holdReason: String
+}
+
+"""
+Coarse status of a queue entry. Mirrors
+[`animus_control_protocol::types::QueueEntryStatus`].
+"""
+enum QueueState {
+	READY
+	HELD
+	IN_FLIGHT
+	DONE
+	DROPPED
+}
+
+"""
+Aggregate queue counters. Mirrors
+[`animus_control_protocol::types::QueueStats`].
+"""
+type QueueStats {
+	"""
+	Total live entries (ready + held + in-flight).
+	"""
+	total: Int!
+	ready: Int!
+	held: Int!
+	inFlight: Int!
+	doneRecent: Int!
+	droppedRecent: Int!
+}
+
+"""
+A normalized cross-backend subject. Mirrors
+[`animus_subject_protocol::Subject`].
+"""
+type Subject {
+	id: ID!
+	kind: String!
+	title: String!
+	description: String
+	status: SubjectStatus!
+	"""
+	Backend-raw status string (e.g. `"In Review"`), when richer than the
+	normalized bucket.
+	"""
+	nativeStatus: String
+	"""
+	Free-form backend status payload, serialized as a JSON string.
+	"""
+	statusMetadata: String
+	"""
+	Priority on a 0..=4 scale.
+	"""
+	priority: Int
+	assignee: String
+	labels: [String!]!
+	parent: ID
+	children: [ID!]!
+	url: String
+	createdAt: String!
+	updatedAt: String!
+	"""
+	Backend-specific custom fields, serialized as a JSON string.
+	"""
+	custom: String
+	attachments: [SubjectAttachment!]!
+}
+
+"""
+An attachment carried by a [`Subject`].
+"""
+type SubjectAttachment {
+	id: String!
+	kind: String!
+	uri: String!
+	title: String
+	mimeType: String
+	"""
+	Free-form backend metadata, serialized as a JSON string.
+	"""
+	metadata: String
+}
+
+type SubjectChangeEvent {
+	subjectId: ID!
+	change: String!
+	at: String!
+}
+
+"""
+Normalized cross-backend subject status. Mirrors
+[`animus_subject_protocol::SubjectStatus`].
+"""
+enum SubjectStatus {
+	READY
+	IN_PROGRESS
+	BLOCKED
+	DONE
+	CANCELLED
+}
+
+type SubscriptionRoot {
+	workflowEvents(workflowId: ID, kinds: [String!]): WorkflowEvent!
+	daemonEvents: DaemonEvent!
+	subjectChanged(kind: String): SubjectChangeEvent!
+}
+
+input UpdateSubjectInput {
+	id: ID!
+	status: SubjectStatus
+	"""
+	`Some(...)` sets the assignee; pass an empty string to clear it.
+	"""
+	assignee: String
+	labelsAdd: [String!]! = []
+	labelsRemove: [String!]! = []
+	comment: String
+}
+
+"""
+A workflow run. Mirrors
+[`animus_control_protocol::types::WorkflowRunSummary`] plus the opaque
+`detail` blob from `WorkflowRun` (serialized as JSON when present).
+"""
+type Workflow {
+	id: ID!
+	"""
+	Workflow definition name.
+	"""
+	definition: String!
+	status: WorkflowStatus!
+	subjectId: ID
+	startedAt: String!
+	finishedAt: String
+	"""
+	Full run detail as a JSON string (phase history, decisions,
+	checkpoints). Only populated by `workflow`-by-id lookups.
+	"""
+	detail: String
+}
+
+type WorkflowEvent {
+	workflowId: ID!
+	kind: String!
+	payload: String!
+	at: String!
+}
+
+"""
+Result of starting a workflow. Mirrors
+[`animus_control_protocol::types::WorkflowRunStart`].
+"""
+type WorkflowRunStart {
+	workflowId: ID!
+	status: WorkflowStatus
+	startedAt: String!
+}
+
+"""
+Workflow lifecycle status. Mirrors
+[`animus_control_protocol::types::WorkflowStatus`].
+"""
+enum WorkflowStatus {
+	PENDING
+	RUNNING
+	PAUSED
+	COMPLETED
+	FAILED
+	CANCELLED
+}
+
+"""
+Directs the executor to include this field or fragment only when the `if` argument is true.
+"""
+directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+"""
+Directs the executor to skip this field or fragment when the `if` argument is true.
+"""
+directive @skip(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+schema {
+	query: QueryRoot
+	mutation: MutationRoot
+	subscription: SubscriptionRoot
+}

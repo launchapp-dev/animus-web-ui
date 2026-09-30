@@ -24,6 +24,7 @@ use tokio_tungstenite::tungstenite::{client::IntoClientRequest, Message as Upstr
 
 use crate::config::WebUiSettings;
 use crate::embed;
+use crate::loopback;
 
 const PLACEHOLDER_HTML: &str = include_str!("placeholder.html");
 
@@ -34,6 +35,7 @@ pub struct AppState {
 }
 
 pub fn build_router(settings: WebUiSettings) -> Router {
+    let guard_settings = std::sync::Arc::new(settings.clone());
     let state = AppState {
         settings,
         http_client: reqwest::Client::new(),
@@ -46,6 +48,10 @@ pub fn build_router(settings: WebUiSettings) -> Router {
         .route("/graphql/ws", get(graphql_websocket_proxy))
         .fallback(static_handler)
         .with_state(state)
+        .layer(axum::middleware::from_fn_with_state(
+            guard_settings,
+            loopback::guard,
+        ))
 }
 
 async fn healthz() -> impl IntoResponse {
@@ -76,7 +82,10 @@ async fn graphql_http_proxy(State(state): State<AppState>, req: Request<Body>) -
 
     let mut upstream = state.http_client.request(parts.method, target).body(body);
     for (name, value) in &parts.headers {
-        if name != header::HOST && !is_hop_by_hop(name) {
+        // `Origin` was already checked by `loopback::guard`; dropping it keeps
+        // the GraphQL transport from re-checking it against its own
+        // `allowed_hosts`, which may not list the names this server accepts.
+        if name != header::HOST && name != header::ORIGIN && !is_hop_by_hop(name) {
             upstream = upstream.header(name, value);
         }
     }
@@ -172,16 +181,16 @@ async fn bridge_websockets(
             },
             message = upstream_rx.next() => match message {
                 Some(Ok(UpstreamMessage::Text(text))) => {
-                    if client_tx.send(ClientMessage::Text(text.into())).await.is_err() { break; }
+                    if client_tx.send(ClientMessage::Text(text)).await.is_err() { break; }
                 }
                 Some(Ok(UpstreamMessage::Binary(bytes))) => {
-                    if client_tx.send(ClientMessage::Binary(bytes.into())).await.is_err() { break; }
+                    if client_tx.send(ClientMessage::Binary(bytes)).await.is_err() { break; }
                 }
                 Some(Ok(UpstreamMessage::Ping(bytes))) => {
-                    if client_tx.send(ClientMessage::Ping(bytes.into())).await.is_err() { break; }
+                    if client_tx.send(ClientMessage::Ping(bytes)).await.is_err() { break; }
                 }
                 Some(Ok(UpstreamMessage::Pong(bytes))) => {
-                    if client_tx.send(ClientMessage::Pong(bytes.into())).await.is_err() { break; }
+                    if client_tx.send(ClientMessage::Pong(bytes)).await.is_err() { break; }
                 }
                 Some(Ok(UpstreamMessage::Close(_))) | None | Some(Err(_)) => {
                     let _ = client_tx.send(ClientMessage::Close(None)).await;

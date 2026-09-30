@@ -23,6 +23,7 @@ fn test_settings() -> WebUiSettings {
         control_socket_path: PathBuf::from("/tmp/animus-web-ui-test.sock"),
         project_root: PathBuf::from("/tmp"),
         api_origin: None,
+        allowed_hosts: Vec::new(),
     }
 }
 
@@ -152,4 +153,154 @@ async fn fingerprint_heuristic_recognizes_vite_hashes() {
     assert!(!embed::is_fingerprinted("/assets/index.js"));
     assert!(!embed::is_fingerprinted("/index.html"));
     assert!(!embed::is_fingerprinted("/favicon.ico"));
+}
+
+async fn status_with(
+    app: axum::Router,
+    method: &str,
+    path: &str,
+    headers: &[(&str, &str)],
+) -> StatusCode {
+    let mut req = Request::builder().method(method).uri(path);
+    for (name, value) in headers {
+        req = req.header(*name, *value);
+    }
+    app.oneshot(req.body(Body::empty()).unwrap())
+        .await
+        .unwrap()
+        .status()
+}
+
+#[tokio::test]
+async fn local_host_and_origin_are_served() {
+    let status = status_with(
+        build_router(test_settings()),
+        "GET",
+        "/",
+        &[
+            ("host", "127.0.0.1:8082"),
+            ("origin", "http://127.0.0.1:8082"),
+        ],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let status = status_with(
+        build_router(test_settings()),
+        "GET",
+        "/",
+        &[("host", "localhost:8082")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn rebound_host_is_refused() {
+    let status = status_with(
+        build_router(test_settings()),
+        "GET",
+        "/",
+        &[("host", "evil.example:8082")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn cross_site_graphql_request_is_refused() {
+    let status = status_with(
+        build_router(test_settings()),
+        "POST",
+        "/graphql",
+        &[
+            ("host", "127.0.0.1:8082"),
+            ("origin", "https://evil.example"),
+        ],
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn cross_site_websocket_upgrade_is_refused() {
+    let status = status_with(
+        build_router(test_settings()),
+        "GET",
+        "/graphql/ws",
+        &[
+            ("host", "127.0.0.1:8082"),
+            ("origin", "https://evil.example"),
+            ("connection", "upgrade"),
+            ("upgrade", "websocket"),
+            ("sec-websocket-version", "13"),
+            ("sec-websocket-key", "dGhlIHNhbXBsZSBub25jZQ=="),
+        ],
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn allowed_hosts_extends_the_loopback_set() {
+    let settings = || WebUiSettings {
+        allowed_hosts: vec!["devbox.lan".to_string()],
+        ..test_settings()
+    };
+    let status = status_with(
+        build_router(settings()),
+        "GET",
+        "/",
+        &[
+            ("host", "devbox.lan:8082"),
+            ("origin", "http://devbox.lan:8082"),
+        ],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let status = status_with(
+        build_router(settings()),
+        "GET",
+        "/",
+        &[("host", "other.lan:8082")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn graphql_proxy_does_not_forward_the_browser_origin() {
+    // Upstream stand-in for the GraphQL transport: reports whether the
+    // request it received carried an Origin header.
+    let upstream = axum::Router::new().route(
+        "/graphql",
+        axum::routing::post(|headers: axum::http::HeaderMap| async move {
+            if headers.contains_key("origin") {
+                "origin-forwarded"
+            } else {
+                "no-origin"
+            }
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let upstream_addr = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+
+    let settings = WebUiSettings {
+        api_origin: Some(format!("http://{upstream_addr}")),
+        allowed_hosts: vec!["devbox.lan".to_string()],
+        ..test_settings()
+    };
+    let req = Request::builder()
+        .method("POST")
+        .uri("/graphql")
+        .header("host", "devbox.lan:8082")
+        .header("origin", "http://devbox.lan:8082")
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"query":"{ __typename }"}"#))
+        .unwrap();
+    let response = build_router(settings).oneshot(req).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    assert_eq!(&body[..], b"no-origin");
 }

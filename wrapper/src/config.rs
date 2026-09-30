@@ -10,6 +10,9 @@ pub struct WebUiSettings {
     pub control_socket_path: PathBuf,
     pub project_root: PathBuf,
     pub api_origin: Option<String>,
+    /// Host names accepted in `Host` / `Origin` besides the loopback ones
+    /// (see [`crate::loopback`]).
+    pub allowed_hosts: Vec<String>,
 }
 
 impl WebUiSettings {
@@ -28,6 +31,18 @@ impl WebUiSettings {
             .get("api_origin")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
+        let allowed_hosts = config
+            .config
+            .get("allowed_hosts")
+            .and_then(|v| v.as_array())
+            .map(|hosts| {
+                hosts
+                    .iter()
+                    .filter_map(|h| h.as_str())
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default();
 
         Self {
             bind_addr: config
@@ -37,6 +52,7 @@ impl WebUiSettings {
             control_socket_path: config.control_socket_path.clone(),
             project_root: config.project_root.clone(),
             api_origin,
+            allowed_hosts,
         }
     }
 }

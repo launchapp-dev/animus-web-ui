@@ -30,6 +30,14 @@ jobs:
       - name: Test
         run: npm test
 
+      # Regenerate the typed operations from the vendored schema. Fails if a
+      # query asks for a field the GraphQL transport does not have, or if the
+      # committed output is stale.
+      - name: Codegen is current
+        run: |
+          npm run codegen
+          git diff --exit-code src/lib/graphql/generated/
+
       - name: Build
         run: npm run build
 
@@ -39,3 +47,33 @@ jobs:
           name: dist
           path: dist/
           retention-days: 7
+
+  wrapper:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Build React UI (embedded by the wrapper)
+        run: |
+          npm ci
+          npm run build
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+
+      - name: fmt
+        run: cargo fmt --all -- --check
+
+      - name: clippy
+        run: cargo clippy -p animus-web-ui --all-targets -- -D warnings
+
+      - name: test
+        run: cargo test -p animus-web-ui
